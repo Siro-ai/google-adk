@@ -245,10 +245,10 @@ COPY --chown=myuser:myuser "package-lock.json" "/app/package-lock.json"
 COPY --chown=myuser:myuser "node_modules" "/app/node_modules"
 # Copy application files
 
-# Siro fork: agent deps (including @siro-ai/adk-devtools which provides
-# the `adk` CLI) were installed on the runner and are already present in
-# the copied node_modules above. Skipping the install here means Cloud
-# Build never needs GitHub Packages auth.
+# Siro fork: agent deps (including the adk CLI from @siro-ai/adk-devtools)
+# were installed on the runner and are already present in the copied
+# node_modules above. Skipping the install here means Cloud Build never
+# needs GitHub Packages auth.
 
 EXPOSE ${options.port}
 
