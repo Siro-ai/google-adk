@@ -160,9 +160,9 @@ export class TokenBasedContextCompactor implements BaseContextCompactor {
  * Mirrors the Python ADK (`apps/compaction.py::_latest_prompt_token_count`):
  * each model response's `usageMetadata.promptTokenCount` is the measured size
  * of the entire request that produced it (system instruction + tools + full
- * history), so the latest one is used directly. Summing these across events —
- * the previous behavior — re-counts the same history once per event and grows
- * with call count rather than context size.
+ * history), so the latest one is used directly. These values must not be
+ * summed across events: each already includes all prior history, so a sum
+ * grows with call count rather than context size.
  */
 function latestPromptTokenCount(
   activeEvents: Event[],
