@@ -1,6 +1,6 @@
 {
   "name": "@siro-ai/adk",
-  "version": "0.7.0-siro.0",
+  "version": "0.7.0-siro.1",
   "description": "Siro fork of @google/adk pinned to unreleased main (session-history fixes)",
   "author": "Siro",
   "license": "Apache-2.0",
