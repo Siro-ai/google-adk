@@ -13,6 +13,52 @@ import {
 } from './schema.js';
 
 /**
+ * How long a socket may idle before the kernel starts sending TCP keepalive
+ * probes. Cloud networks drop idle connections without telling either end
+ * (~10 minutes on Google Cloud), so probing has to start well inside that
+ * window. Kernel probes rather than a JavaScript timer: a serverless host is
+ * only guaranteed CPU while it serves a request, so an in-process timer may
+ * never fire during the idle period it exists to cover.
+ */
+const KEEPALIVE_INITIAL_DELAY_MS = 60_000;
+
+/**
+ * Pooling and socket options that stop a pooled connection from outliving the
+ * socket underneath it.
+ *
+ * The pool's default floor of two connections keeps sockets checked in
+ * forever, so a deployment that goes quiet between requests hands the next
+ * caller a connection the network has already dropped. That surfaces as a
+ * stalled request — the failure is only discovered when the write is attempted
+ * — so keep no floor and let genuinely idle connections be reaped instead.
+ *
+ * sqlite is exempt: there is no socket, and an in-memory database lives inside
+ * its connection, so reaping it would discard the data.
+ */
+function getIdleSafeConnectionOptions(uri: string): MikroORMOptions {
+  if (uri.startsWith('sqlite://')) {
+    return {} as MikroORMOptions;
+  }
+
+  const isPostgres =
+    uri.startsWith('postgres://') || uri.startsWith('postgresql://');
+
+  return {
+    pool: {min: 0},
+    // `keepAlive` is a node-postgres option; the other drivers spell it
+    // differently or enable it themselves.
+    ...(isPostgres && {
+      driverOptions: {
+        connection: {
+          keepAlive: true,
+          keepAliveInitialDelayMillis: KEEPALIVE_INITIAL_DELAY_MS,
+        },
+      },
+    }),
+  } as MikroORMOptions;
+}
+
+/**
  * Parses a database connection URI and returns MikroORM Options.
  *
  * @param uri The database connection URI (e.g., "postgres://user:password@host:port/database")
@@ -66,6 +112,7 @@ export async function getConnectionOptionsFromUri(
     user: username,
     password,
     driver,
+    ...getIdleSafeConnectionOptions(uri),
   } as MikroORMOptions;
 }
 

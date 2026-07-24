@@ -89,6 +89,54 @@ describe('operations', () => {
         getConnectionOptionsFromUri('invalid://user:pass@localhost/db'),
       ).rejects.toThrow('Unsupported database URI');
     });
+
+    it('should keep no pooled connections idle for networked databases', async () => {
+      for (const uri of [
+        'postgres://user:pass@localhost:5432/db',
+        'mysql://user:pass@localhost:3306/db',
+        'mariadb://user:pass@localhost:3306/db',
+        'mssql://user:pass@localhost:1433/db',
+      ]) {
+        const options = await getConnectionOptionsFromUri(uri);
+        expect(options.pool?.min).toBe(0);
+      }
+    });
+
+    it('should enable TCP keepalive for postgresql', async () => {
+      const options = await getConnectionOptionsFromUri(
+        'postgres://user:pass@localhost:5432/db',
+      );
+      expect(options.driverOptions?.connection).toMatchObject({
+        keepAlive: true,
+      });
+    });
+
+    it('should start keepalive probes before a cloud network drops the socket', async () => {
+      const tenMinutesInMs = 10 * 60 * 1000;
+      const options = await getConnectionOptionsFromUri(
+        'postgres://user:pass@localhost:5432/db',
+      );
+      const delay = options.driverOptions?.connection
+        ?.keepAliveInitialDelayMillis as number;
+
+      expect(delay).toBeGreaterThan(0);
+      expect(delay).toBeLessThan(tenMinutesInMs);
+    });
+
+    it('should not set postgresql-only driver options for other drivers', async () => {
+      const options = await getConnectionOptionsFromUri(
+        'mysql://user:pass@localhost:3306/db',
+      );
+      expect(options.driverOptions).toBeUndefined();
+    });
+
+    it('should leave sqlite pooling alone so a memory database is not reaped', async () => {
+      for (const uri of ['sqlite://:memory:', 'sqlite:///tmp/test.db']) {
+        const options = await getConnectionOptionsFromUri(uri);
+        expect(options.pool).toBeUndefined();
+        expect(options.driverOptions).toBeUndefined();
+      }
+    });
   });
 
   describe('ensureDatabaseCreated', () => {
